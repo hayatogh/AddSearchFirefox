@@ -1,39 +1,75 @@
 #!/usr/bin/env python3
-
+from pathlib import Path
+from string import Template
 import http.server
-import json
+import shutil
 import socketserver
-import xml.etree.ElementTree as ET
+import sys
+import threading
+import tomllib
 
-PORT = 8000
-Handler = http.server.SimpleHTTPRequestHandler
+GenDir = Path('generated')
 
-def filterURL(s):
-    return s.replace('%s', '{searchTerms}')
 
-with open('searches.json') as f:
-    searches = json.load(f)
+def clean():
+    if GenDir.is_dir():
+        shutil.rmtree(GenDir)
 
-index = open('index.html', 'w')
-index.write('<head>\n')
 
-for i, s in enumerate(searches):
-    tree = ET.parse('template/template.xml')
-    root = tree.getroot()
-    root.find('{http://a9.com/-/spec/opensearch/1.1/}ShortName').text = s['name']
-    root.find('{http://a9.com/-/spec/opensearch/1.1/}Image').text = s['icon']
-    root.find('{http://a9.com/-/spec/opensearch/1.1/}Url').set('template', filterURL(s['URL']))
-    tree.write(str(i) + '.xml')
+def gen():
 
-    index.write("""<link
-  rel="search"
-  type="application/opensearchdescription+xml"
-  title="%s"
-  href="/%s" />\n""" % (s['name'], str(i) + '.xml'))
+    def filterURL(s):
+        return s.replace('%s', '{searchTerms}').replace('&', '&amp;')
 
-index.write('</head>')
-index.close()
+    TemplateDir = Path('template')
 
-with socketserver.TCPServer(("", PORT), Handler) as httpd:
-    print("serving at port", PORT)
-    httpd.serve_forever()
+    with open('searches.toml', 'rb') as f:
+        searches = tomllib.load(f)
+    with open(TemplateDir / 'search.xml') as f:
+        search = f.read()
+    with open(TemplateDir / 'link.html') as f:
+        link = f.read()
+    with open(TemplateDir / 'index.html') as f:
+        index = f.read()
+
+    GenDir.mkdir()
+    links = ""
+
+    for i, (k, v) in enumerate(searches.items()):
+        f = str(i) + '.xml'
+        url = filterURL(v['URL'])
+        s = Template(search).substitute(name=k, icon=v['icon'], URL=url)
+        print(s, file=open(GenDir / f, 'w'))
+        l = Template(link).substitute(name=k, path=f)
+        links += l
+
+    ind = Template(index).substitute(links=links)
+    print(ind, file=open(GenDir / 'index.html', 'w'))
+
+
+def serve():
+
+    class GeneratedDirHandler(http.server.SimpleHTTPRequestHandler):
+
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs, directory=GenDir)
+
+    server = socketserver.TCPServer(("localhost", 0), GeneratedDirHandler)
+    _, port = server.server_address
+    server_thread = threading.Thread(target=server.serve_forever, daemon=True)
+
+    server_thread.start()
+    input("Serving at http://localhost:" + str(port) + "\nPress Enter to Exit.\n")
+    server.shutdown()
+
+
+def main():
+    clean()
+    if len(sys.argv) == 2 and sys.argv[1] == 'clean':
+        return
+    gen()
+    serve()
+
+
+if __name__ == '__main__':
+    main()

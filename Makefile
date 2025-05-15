@@ -4,4 +4,4 @@ all:
 	./main.py
 
 clean:
-	-rm -f *.xml index.html
+	./main.py clean

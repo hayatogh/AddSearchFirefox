@@ -1,0 +1,12 @@
+["DuckDuckGo English"]
+icon = "https://duckduckgo.com/favicon.ico"
+URL  = "https://duckduckgo.com/?q=%s&kl=us-en"
+["DuckDuckGo 日本語"]
+icon = "https://duckduckgo.com/favicon.ico"
+URL  = "https://duckduckgo.com/?q=%s&kl=jp-jp"
+["Bing English"]
+icon = "https://www.bing.com/favicon.ico"
+URL  = "https://www.bing.com/search?q=%s&setmkt=en-us&setlang=en-us"
+["Bing 日本語"]
+icon = "https://www.bing.com/favicon.ico"
+URL  = "https://www.bing.com/search?q=%s&setmkt=ja-jp&setlang=ja-jp"
